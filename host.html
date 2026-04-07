@@ -11,55 +11,49 @@
     <script src="data.js"></script>
 </head>
 <body>
+    <div class="mesh-bg"></div>
     <div class="container">
         <h1>Dashboard do Professor</h1>
 
         <!-- Step 1: Initialization -->
-        <div id="setup-screen" class="card text-center">
-            <p class="text-muted">Iniciando servidor P2P...</p>
+        <div id="setup-screen" class="glass-card text-center animate-in">
+            <p class="text-secondary">Iniciando servidor P2P...</p>
             <div id="room-display" class="hidden">
-                <p>Sala Criada! Compartilhe o código:</p>
+                <p class="room-info">Sala Criada • Compartilhe o código</p>
                 <div class="room-id" id="room-id-text">----</div>
-                <div id="qrcode"></div>
-                <p class="text-muted">Alunos conectados: <span id="player-count">0</span></p>
-                <div class="player-list" id="player-list"></div>
-                <button class="btn btn-primary mt-4" id="start-game-btn" disabled>Aguardando Alunos...</button>
+                <div class="invite-card">
+                    <div id="qrcode"></div>
+                    <p class="text-secondary">Alunos conectados: <span id="player-count" style="color:var(--text); font-weight:800;">0</span></p>
+                    <div class="player-list" id="player-list"></div>
+                    <button class="btn btn-primary mt-4" id="start-game-btn" disabled style="width: 100%;">Aguardando Alunos...</button>
+                </div>
             </div>
         </div>
 
         <!-- Step 2: Question Display -->
-        <div id="game-screen" class="card hidden">
+        <div id="game-screen" class="glass-card hidden animate-in">
             <div class="room-info">Questão <span id="current-q-num">1</span> de 50</div>
-            <h2 id="question-text" class="mt-4">Carregando pergunta...</h2>
+            <h2 id="question-text">Carregando pergunta...</h2>
             <div class="options-grid" id="options-display"></div>
             
             <div class="mt-4 text-center">
-                <p id="responses-info">Respostas: 0 / 0</p>
-                <button class="btn btn-primary mt-4" id="next-q-btn">Mostrar Resposta</button>
+                <p id="responses-info" class="text-secondary">Respostas: 0 / 0</p>
+                <button class="btn btn-primary mt-4" id="next-q-btn" style="width: 100%;">Mostrar Resposta</button>
             </div>
         </div>
 
         <!-- Step 3: Ranking -->
-        <div id="ranking-screen" class="card hidden">
-            <h2 class="text-center">Ranking em Tempo Real</h2>
-            <table class="ranking-table">
-                <thead>
-                    <tr>
-                        <th>Pos</th>
-                        <th>Nome</th>
-                        <th>Pontos</th>
-                    </tr>
-                </thead>
-                <tbody id="ranking-body"></tbody>
-            </table>
-            <button class="btn btn-primary mt-4" id="continue-game-btn">Próxima Pergunta</button>
+        <div id="ranking-screen" class="glass-card hidden animate-in">
+            <h2 class="text-center">Liderança Parcial</h2>
+            <div id="ranking-body"></div>
+            <button class="btn btn-primary mt-4" id="continue-game-btn" style="width: 100%;">Próxima Pergunta</button>
         </div>
 
         <!-- Step 4: Final Podium -->
-        <div id="podium-screen" class="card hidden">
+        <div id="podium-screen" class="glass-card hidden animate-in">
             <h1 class="text-center">Pódio Final 🏆</h1>
             <div id="podium-content" class="text-center"></div>
-            <button class="btn btn-primary mt-4" onclick="location.reload()">Reiniciar Quiz</button>
+            <button class="btn btn-primary mt-4" onclick="location.reload()" style="width: 100%;">Reiniciar Quiz</button>
         </div>
     </div>
 
@@ -219,11 +213,13 @@
             
             const body = document.getElementById('ranking-body');
             body.innerHTML = sortedPlayers.slice(0, 5).map((p, i) => `
-                <tr>
-                    <td><span class="rank-badge">${i + 1}</span></td>
-                    <td>${p.name}</td>
-                    <td>${p.score}</td>
-                </tr>
+                <div class="rank-item animate-in" style="animation-delay: ${i * 0.1}s">
+                    <div class="rank-info">
+                        <span class="rank-number">${i + 1}</span>
+                        <span style="font-weight:600; font-size:1.2rem;">${p.name}</span>
+                    </div>
+                    <span style="font-weight:800; color:var(--primary-light);">${p.score} pts</span>
+                </div>
             `).join('');
 
             broadcast({

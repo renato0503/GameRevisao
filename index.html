@@ -9,47 +9,48 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
+    <div class="mesh-bg"></div>
     <div class="container">
         <h1>Participar do Quiz</h1>
 
         <!-- Step 1: Join -->
-        <div id="join-screen" class="card">
-            <p class="text-center text-muted mb-4">Insira seu nome para começar</p>
-            <input type="text" id="player-name" class="btn" style="width:100%; text-align:left; border:1px solid var(--border); margin-bottom:1rem;" placeholder="Nome Completo">
+        <div id="join-screen" class="glass-card animate-in">
+            <p class="text-center text-secondary mb-4">Bem-vindo! Insira seu nome para começar.</p>
+            <input type="text" id="player-name" class="btn" style="width:100%; text-align:left; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); color:white; margin-bottom:1.5rem;" placeholder="Seu Nome">
             <button id="join-btn" class="btn btn-primary" style="width:100%;">Entrar na Sala</button>
-            <p id="status-text" class="text-center mt-4 text-muted"></p>
+            <p id="status-text" class="text-center mt-4 text-secondary"></p>
         </div>
 
         <!-- Step 2: Waiting -->
-        <div id="waiting-screen" class="card hidden text-center">
-            <h2>Bem-vindo, <span id="display-name"></span>!</h2>
-            <p class="mt-4">Aguardando o professor iniciar o quiz...</p>
+        <div id="waiting-screen" class="glass-card hidden text-center animate-in">
+            <h2 style="font-size:1.75rem;">Olá, <span id="display-name" style="color:var(--primary-light);"></span>!</h2>
+            <p class="text-secondary mt-4">Aguardando o professor iniciar o quiz...</p>
             <div class="mt-4">
-                <div class="room-id" id="display-room-id">----</div>
+                <div class="room-id" id="display-room-id" style="font-size:1.5rem; letter-spacing:2px;">----</div>
             </div>
         </div>
 
         <!-- Step 3: Question -->
-        <div id="question-screen" class="card hidden">
+        <div id="question-screen" class="glass-card hidden animate-in">
             <div class="room-info">Questão <span id="q-num">1</span></div>
-            <h2 id="q-text" class="mt-4">Aguardando pergunta...</h2>
+            <h2 id="q-text" style="font-size:1.5rem;">Aguardando pergunta...</h2>
             <div class="options-grid" id="q-options"></div>
-            <p id="feedback-text" class="text-center mt-4 hidden"></p>
+            <p id="feedback-text" class="text-center mt-4 hidden text-secondary"></p>
         </div>
 
         <!-- Step 4: Leaderboard (Student View) -->
-        <div id="leaderboard-screen" class="card hidden">
-            <h2 class="text-center">Ranking</h2>
+        <div id="leaderboard-screen" class="glass-card hidden animate-in">
+            <h2 class="text-center" style="font-size:1.75rem;">Liderança</h2>
             <div id="ranking-list" class="mt-4"></div>
-            <p class="text-center text-muted mt-4">Aguarde a próxima questão...</p>
+            <p class="text-center text-secondary mt-4">Prepare-se para a próxima...</p>
         </div>
 
         <!-- Step 5: Game Over -->
-        <div id="game-over-screen" class="card hidden text-center">
-            <h1>Fim de Jogo!</h1>
-            <p id="final-status"></p>
+        <div id="game-over-screen" class="glass-card hidden text-center animate-in">
+            <h1 style="font-size:2.5rem;">Fim de Jogo!</h1>
+            <p id="final-status" style="font-size:1.25rem; font-weight:600;"></p>
             <div class="mt-4">
-                <button class="btn btn-primary" onclick="location.reload()" style="width:100%;">Sair</button>
+                <button class="btn btn-primary" onclick="location.reload()" style="width:100%;">Sair da Sala</button>
             </div>
         </div>
     </div>

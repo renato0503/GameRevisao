@@ -1,247 +1,254 @@
 /* style.css */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-    --primary: #6366f1;
-    --primary-hover: #4f46e5;
-    --bg: #0f172a;
-    --card-bg: rgba(30, 41, 59, 0.7);
-    --text: #f8fafc;
-    --text-muted: #94a3b8;
-    --accent: #10b981;
-    --danger: #ef4444;
-    --glass: rgba(255, 255, 255, 0.05);
-    --border: rgba(255, 255, 255, 0.1);
+    --primary: #5856d6; /* iOS Indigo */
+    --primary-light: #7d7aff;
+    --secondary: #ff2d55; /* iOS Rose */
+    --accent: #34c759; /* iOS Green */
+    --bg-dark: #000000;
+    --text: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.6);
+    --glass-bg: rgba(28, 28, 30, 0.7); /* iOS Dark Translucent */
+    --glass-border: rgba(255, 255, 255, 0.15);
+    --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+    --radius: 24px; /* iOS-style corners */
 }
 
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
 }
 
 body {
-    font-family: 'Inter', sans-serif;
-    background-color: var(--bg);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-dark);
     color: var(--text);
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background-image: 
-        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
     overflow-x: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Vibrant Mesh Gradient Background */
+.mesh-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background-color: #000;
+    background-image: 
+        radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+        radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+        radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%), 
+        radial-gradient(at 0% 100%, hsla(339,49%,30%,1) 0, transparent 50%), 
+        radial-gradient(at 50% 100%, hsla(225,39%,30%,1) 0, transparent 50%), 
+        radial-gradient(at 100% 100%, hsla(253,16%,7%,1) 0, transparent 50%);
+    opacity: 0.8;
 }
 
 .container {
     width: 100%;
-    max-width: 800px;
-    padding: 2rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
+    max-width: 900px;
+    padding: 20px;
+    z-index: 1;
 }
 
 /* Glassmorphism Card */
-.card {
-    background: var(--card-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--border);
-    border-radius: 1.5rem;
-    padding: 2rem;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+.glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(25px) saturate(180%);
+    -webkit-backdrop-filter: blur(25px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 40px;
+    box-shadow: var(--card-shadow);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Typography */
 h1 {
-    font-size: 2.5rem;
+    font-size: 3.5rem;
     font-weight: 800;
+    letter-spacing: -0.04em;
     text-align: center;
-    background: linear-gradient(to right, #818cf8, #34d399);
+    background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.7) 100%);
+    background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    margin-bottom: 1rem;
+    margin-bottom: 2rem;
+}
+
+h2 {
+    font-size: 2.25rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 2rem;
 }
 
 .room-info {
-    text-align: center;
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-muted);
-}
-
-.room-id {
-    color: var(--primary);
-    font-family: monospace;
-    font-size: 2rem;
-    letter-spacing: 4px;
-    background: var(--glass);
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    margin: 0.5rem 0;
-    display: inline-block;
+    text-transform: uppercase;
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--primary-light);
+    margin-bottom: 1rem;
 }
 
 /* Buttons */
 .btn {
-    padding: 1rem 2rem;
-    border-radius: 0.75rem;
+    padding: 16px 32px;
+    border-radius: 18px;
     border: none;
     font-weight: 600;
+    font-size: 1.1rem;
     cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 1rem;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
+    gap: 10px;
 }
 
 .btn-primary {
-    background-color: var(--primary);
+    background: var(--primary);
     color: white;
+    box-shadow: 0 4px 15px rgba(88, 86, 214, 0.3);
 }
 
-.btn-primary:hover:not(:disabled) {
-    background-color: var(--primary-hover);
-    transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4);
+.btn-primary:hover {
+    transform: scale(1.02);
+    background: var(--primary-light);
 }
 
-.btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+.btn-primary:active {
+    transform: scale(0.98);
 }
 
-/* Options Grid */
+/* iOS-style Options */
 .options-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1rem;
-    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .option-btn {
+    width: 100%;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
     text-align: left;
-    padding: 1.25rem;
-    background: var(--glass);
-    border: 1px solid var(--border);
-    border-radius: 1rem;
-    color: var(--text);
-    font-size: 1.1rem;
+    color: white;
+    font-size: 1.2rem;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
     display: flex;
-    align-items: flex-start;
-    gap: 1rem;
+    align-items: center;
+    gap: 15px;
 }
 
 .option-btn:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.1);
-    border-color: var(--primary);
+    transform: translateX(5px);
 }
 
 .option-btn.selected {
     background: var(--primary);
-    border-color: var(--primary);
+    border-color: var(--primary-light);
 }
 
 .option-btn.correct {
     background: var(--accent);
-    border-color: var(--accent);
+    border-color: #4cd964;
 }
 
 .option-btn.incorrect {
-    background: var(--danger);
-    border-color: var(--danger);
+    background: var(--secondary);
+    border-color: #ff3b30;
 }
 
 .option-letter {
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-weight: 700;
-    color: var(--primary);
-    min-width: 1.5rem;
+    font-size: 0.9rem;
 }
 
-.option-btn.selected .option-letter {
-    color: white;
+/* Ranking List */
+.rank-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 18px;
+    margin-bottom: 10px;
+    transition: transform 0.3s ease;
 }
 
-/* Ranking Table */
-.ranking-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 1rem;
+.rank-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
-.ranking-table th, .ranking-table td {
-    padding: 1rem;
-    text-align: left;
-    border-bottom: 1px solid var(--border);
+.rank-number {
+    font-weight: 800;
+    font-size: 1.5rem;
+    color: var(--text-secondary);
 }
 
-.ranking-table tr:last-child td {
-    border-bottom: none;
+/* QR Code & Invite */
+.invite-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
 }
 
-.rank-badge {
-    background: var(--glass);
-    padding: 0.25rem 0.75rem;
-    border-radius: 1rem;
-    font-weight: 600;
-}
-
-/* QR Code Section */
 #qrcode {
     background: white;
-    padding: 1rem;
-    border-radius: 1rem;
-    display: inline-block;
-    margin: 1rem 0;
+    padding: 15px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
-#qrcode img {
-    max-width: 200px;
+.room-id {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--primary-light);
+    letter-spacing: 5px;
 }
 
-/* Waiting Room */
-.player-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    justify-content: center;
-    margin-top: 1.5rem;
+/* Animations */
+@keyframes slideIn {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
 
-.player-chip {
-    background: var(--glass);
-    padding: 0.5rem 1rem;
-    border-radius: 2rem;
-    font-size: 0.9rem;
-    border: 1px solid var(--border);
-    animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.9); }
-    to { opacity: 1; transform: scale(1); }
+.animate-in {
+    animation: slideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 /* Mobile Adjustments */
-@media (max-width: 640px) {
-    .container {
-        padding: 1rem;
-    }
-    .card {
-        padding: 1.5rem;
-    }
-    h1 {
-        font-size: 1.75rem;
-    }
+@media (max-width: 600px) {
+    h1 { font-size: 2.5rem; }
+    h2 { font-size: 1.75rem; }
+    .glass-card { padding: 25px; }
 }
 
-/* Utils */
 .hidden { display: none !important; }
 .text-center { text-align: center; }
-.mt-4 { margin-top: 1rem; }
+.mt-4 { margin-top: 2rem; }

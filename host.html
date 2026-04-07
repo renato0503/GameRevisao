@@ -64,6 +64,12 @@
     </div>
 
     <script>
+        // Prevenção contra fechamento/atualização acidental (Anti-F5)
+        window.addEventListener('beforeunload', (event) => {
+            event.preventDefault();
+            event.returnValue = 'Atenção: Se você sair agora, a sala e o ranking serão perdidos permanentemente!';
+        });
+
         let peer = null;
         let connections = {};
         let gameState = {

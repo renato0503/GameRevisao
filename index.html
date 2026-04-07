@@ -1,0 +1,172 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz BI - Aluno</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Participar do Quiz</h1>
+
+        <!-- Step 1: Join -->
+        <div id="join-screen" class="card">
+            <p class="text-center text-muted mb-4">Insira seu nome para começar</p>
+            <input type="text" id="player-name" class="btn" style="width:100%; text-align:left; border:1px solid var(--border); margin-bottom:1rem;" placeholder="Nome Completo">
+            <button id="join-btn" class="btn btn-primary" style="width:100%;">Entrar na Sala</button>
+            <p id="status-text" class="text-center mt-4 text-muted"></p>
+        </div>
+
+        <!-- Step 2: Waiting -->
+        <div id="waiting-screen" class="card hidden text-center">
+            <h2>Bem-vindo, <span id="display-name"></span>!</h2>
+            <p class="mt-4">Aguardando o professor iniciar o quiz...</p>
+            <div class="mt-4">
+                <div class="room-id" id="display-room-id">----</div>
+            </div>
+        </div>
+
+        <!-- Step 3: Question -->
+        <div id="question-screen" class="card hidden">
+            <div class="room-info">Questão <span id="q-num">1</span></div>
+            <h2 id="q-text" class="mt-4">Aguardando pergunta...</h2>
+            <div class="options-grid" id="q-options"></div>
+            <p id="feedback-text" class="text-center mt-4 hidden"></p>
+        </div>
+
+        <!-- Step 4: Leaderboard (Student View) -->
+        <div id="leaderboard-screen" class="card hidden">
+            <h2 class="text-center">Ranking</h2>
+            <div id="ranking-list" class="mt-4"></div>
+            <p class="text-center text-muted mt-4">Aguarde a próxima questão...</p>
+        </div>
+
+        <!-- Step 5: Game Over -->
+        <div id="game-over-screen" class="card hidden text-center">
+            <h1>Fim de Jogo!</h1>
+            <p id="final-status"></p>
+            <div class="mt-4">
+                <button class="btn btn-primary" onclick="location.reload()" style="width:100%;">Sair</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('room')?.toUpperCase();
+        let peer = null;
+        let conn = null;
+        let myName = '';
+        let hasAnswered = false;
+
+        if (!roomId) {
+            document.getElementById('status-text').innerText = 'ERRO: Link inválido. Peça o QR Code ao professor.';
+            document.getElementById('join-btn').disabled = true;
+        }
+
+        document.getElementById('join-btn').onclick = () => {
+            myName = document.getElementById('player-name').value.trim();
+            if (!myName) return alert('Por favor, digite seu nome.');
+            
+            connectToHost();
+        };
+
+        function connectToHost() {
+            document.getElementById('status-text').innerText = 'Conectando ao professor...';
+            document.getElementById('join-btn').disabled = true;
+
+            peer = new Peer();
+
+            peer.on('open', (id) => {
+                conn = peer.connect('QUIZ-' + roomId);
+
+                conn.on('open', () => {
+                    conn.send({ type: 'join', name: myName });
+                });
+
+                conn.on('data', (data) => {
+                    handleHostData(data);
+                });
+
+                conn.on('close', () => {
+                    alert('Conexão perdida com o professor.');
+                    location.reload();
+                });
+                
+                peer.on('error', (err) => {
+                    console.error(err);
+                    document.getElementById('status-text').innerText = 'Erro ao conectar. A sala existe?';
+                    document.getElementById('join-btn').disabled = false;
+                });
+            });
+        }
+
+        function handleHostData(data) {
+            if (data.type === 'welcome') {
+                document.getElementById('join-screen').classList.add('hidden');
+                document.getElementById('waiting-screen').classList.remove('hidden');
+                document.getElementById('display-name').innerText = myName;
+                document.getElementById('display-room-id').innerText = roomId;
+            }
+
+            if (data.type === 'question') {
+                hasAnswered = false;
+                document.getElementById('waiting-screen').classList.add('hidden');
+                document.getElementById('leaderboard-screen').classList.add('hidden');
+                document.getElementById('question-screen').classList.remove('hidden');
+                
+                document.getElementById('q-num').innerText = data.number;
+                document.getElementById('q-text').innerText = data.question;
+                document.getElementById('feedback-text').classList.add('hidden');
+                
+                const grid = document.getElementById('q-options');
+                grid.innerHTML = Object.entries(data.options).map(([key, val]) => `
+                    <button class="option-btn" onclick="sendAnswer('${key}', this)">
+                        <span class="option-letter">${key})</span>
+                        <span>${val}</span>
+                    </button>
+                `).join('');
+            }
+
+            if (data.type === 'answer_received') {
+                document.getElementById('feedback-text').innerText = 'Resposta enviada! Aguarde o resultado...';
+                document.getElementById('feedback-text').classList.remove('hidden');
+            }
+
+            if (data.type === 'ranking') {
+                document.getElementById('question-screen').classList.add('hidden');
+                document.getElementById('leaderboard-screen').classList.remove('hidden');
+                
+                const list = document.getElementById('ranking-list');
+                list.innerHTML = data.ranking.slice(0, 5).map((p, i) => `
+                    <div class="player-chip mt-4" style="display:flex; justify-content:space-between; width:100%; border-radius:0.5rem;">
+                        <span>${i+1}. ${p.name}</span>
+                        <strong>${p.score} pts</strong>
+                    </div>
+                `).join('');
+            }
+
+            if (data.type === 'game_over') {
+                document.getElementById('leaderboard-screen').classList.add('hidden');
+                document.getElementById('game-over-screen').classList.remove('hidden');
+                document.getElementById('final-status').innerText = data.winner === myName ? 'PARABÉNS! Você venceu! 👑' : `Vencedor: ${data.winner}`;
+            }
+        }
+
+        function sendAnswer(key, btn) {
+            if (hasAnswered) return;
+            hasAnswered = true;
+            
+            // Highlight selected
+            const btns = document.querySelectorAll('.option-btn');
+            btns.forEach(b => b.disabled = true);
+            btn.classList.add('selected');
+            
+            conn.send({ type: 'answer', answer: key });
+        }
+    </script>
+</body>
+</html>

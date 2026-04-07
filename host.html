@@ -1,0 +1,261 @@
+<!-- host.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz BI - Professor (Host)</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="data.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Dashboard do Professor</h1>
+
+        <!-- Step 1: Initialization -->
+        <div id="setup-screen" class="card text-center">
+            <p class="text-muted">Iniciando servidor P2P...</p>
+            <div id="room-display" class="hidden">
+                <p>Sala Criada! Compartilhe o código:</p>
+                <div class="room-id" id="room-id-text">----</div>
+                <div id="qrcode"></div>
+                <p class="text-muted">Alunos conectados: <span id="player-count">0</span></p>
+                <div class="player-list" id="player-list"></div>
+                <button class="btn btn-primary mt-4" id="start-game-btn" disabled>Aguardando Alunos...</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Question Display -->
+        <div id="game-screen" class="card hidden">
+            <div class="room-info">Questão <span id="current-q-num">1</span> de 50</div>
+            <h2 id="question-text" class="mt-4">Carregando pergunta...</h2>
+            <div class="options-grid" id="options-display"></div>
+            
+            <div class="mt-4 text-center">
+                <p id="responses-info">Respostas: 0 / 0</p>
+                <button class="btn btn-primary mt-4" id="next-q-btn">Mostrar Resposta</button>
+            </div>
+        </div>
+
+        <!-- Step 3: Ranking -->
+        <div id="ranking-screen" class="card hidden">
+            <h2 class="text-center">Ranking em Tempo Real</h2>
+            <table class="ranking-table">
+                <thead>
+                    <tr>
+                        <th>Pos</th>
+                        <th>Nome</th>
+                        <th>Pontos</th>
+                    </tr>
+                </thead>
+                <tbody id="ranking-body"></tbody>
+            </table>
+            <button class="btn btn-primary mt-4" id="continue-game-btn">Próxima Pergunta</button>
+        </div>
+
+        <!-- Step 4: Final Podium -->
+        <div id="podium-screen" class="card hidden">
+            <h1 class="text-center">Pódio Final 🏆</h1>
+            <div id="podium-content" class="text-center"></div>
+            <button class="btn btn-primary mt-4" onclick="location.reload()">Reiniciar Quiz</button>
+        </div>
+    </div>
+
+    <script>
+        let peer = null;
+        let connections = {};
+        let gameState = {
+            currentQuestion: 0,
+            players: {}, // id: {name: string, score: 0, lastAnswerTime: 0}
+            isShowingResult: false,
+            responsesCount: 0
+        };
+
+        const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+        
+        // Initialize PeerJS
+        function initPeer() {
+            peer = new Peer('QUIZ-' + roomId);
+
+            peer.on('open', (id) => {
+                document.getElementById('setup-screen').querySelector('p').classList.add('hidden');
+                document.getElementById('room-display').classList.remove('hidden');
+                document.getElementById('room-id-text').innerText = roomId;
+                
+                const url = window.location.href.replace('host.html', 'index.html') + '?room=' + roomId;
+                new QRCode(document.getElementById("qrcode"), {
+                    text: url,
+                    width: 200,
+                    height: 200
+                });
+            });
+
+            peer.on('connection', (conn) => {
+                conn.on('data', (data) => {
+                    handleClientData(conn, data);
+                });
+
+                conn.on('close', () => {
+                    delete connections[conn.peer];
+                    updatePlayerList();
+                });
+            });
+        }
+
+        function handleClientData(conn, data) {
+            if (data.type === 'join') {
+                connections[conn.peer] = conn;
+                gameState.players[conn.peer] = {
+                    name: data.name,
+                    score: 0,
+                    answered: false
+                };
+                updatePlayerList();
+                conn.send({ type: 'welcome', roomId: roomId });
+            }
+
+            if (data.type === 'answer') {
+                const player = gameState.players[conn.peer];
+                if (player && !player.answered) {
+                    player.answered = true;
+                    gameState.responsesCount++;
+                    
+                    const question = quizData[gameState.currentQuestion];
+                    if (data.answer === question.correct) {
+                        player.score += 10; // Simple scoring
+                    }
+                    
+                    updateResponseCount();
+                    conn.send({ type: 'answer_received' });
+                }
+            }
+        }
+
+        function updatePlayerList() {
+            const list = document.getElementById('player-list');
+            const players = Object.values(gameState.players);
+            list.innerHTML = players.map(p => `<span class="player-chip">${p.name}</span>`).join('');
+            document.getElementById('player-count').innerText = players.length;
+            
+            const btn = document.getElementById('start-game-btn');
+            if (players.length > 0) {
+                btn.disabled = false;
+                btn.innerText = 'Começar Quiz';
+            }
+        }
+
+        function updateResponseCount() {
+            const total = Object.keys(gameState.players).length;
+            document.getElementById('responses-info').innerText = `Respostas: ${gameState.responsesCount} / ${total}`;
+        }
+
+        function broadcast(data) {
+            Object.values(connections).forEach(conn => conn.send(data));
+        }
+
+        // Game Logic
+        document.getElementById('start-game-btn').onclick = () => {
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            showQuestion();
+        };
+
+        function showQuestion() {
+            gameState.isShowingResult = false;
+            gameState.responsesCount = 0;
+            const q = quizData[gameState.currentQuestion];
+            
+            // Clear status for all players
+            Object.values(gameState.players).forEach(p => p.answered = false);
+
+            document.getElementById('current-q-num').innerText = gameState.currentQuestion + 1;
+            document.getElementById('question-text').innerText = q.question;
+            
+            const optionsHtml = Object.entries(q.options).map(([key, val]) => `
+                <div class="option-btn" id="opt-${key}">
+                    <span class="option-letter">${key})</span>
+                    <span>${val}</span>
+                </div>
+            `).join('');
+            
+            document.getElementById('options-display').innerHTML = optionsHtml;
+            document.getElementById('next-q-btn').innerText = 'Mostrar Resposta';
+            updateResponseCount();
+
+            broadcast({
+                type: 'question',
+                question: q.question,
+                options: q.options,
+                number: gameState.currentQuestion + 1
+            });
+        }
+
+        document.getElementById('next-q-btn').onclick = () => {
+            if (!gameState.isShowingResult) {
+                // Show Answer
+                gameState.isShowingResult = true;
+                const correct = quizData[gameState.currentQuestion].correct;
+                document.getElementById(`opt-${correct}`).classList.add('correct');
+                document.getElementById('next-q-btn').innerText = 'Ver Ranking';
+            } else {
+                showRanking();
+            }
+        };
+
+        function showRanking() {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('ranking-screen').classList.remove('hidden');
+            
+            const sortedPlayers = Object.values(gameState.players)
+                .sort((a, b) => b.score - a.score);
+            
+            const body = document.getElementById('ranking-body');
+            body.innerHTML = sortedPlayers.slice(0, 5).map((p, i) => `
+                <tr>
+                    <td><span class="rank-badge">${i + 1}</span></td>
+                    <td>${p.name}</td>
+                    <td>${p.score}</td>
+                </tr>
+            `).join('');
+
+            broadcast({
+                type: 'ranking',
+                ranking: sortedPlayers.map(p => ({name: p.name, score: p.score}))
+            });
+        }
+
+        document.getElementById('continue-game-btn').onclick = () => {
+            gameState.currentQuestion++;
+            if (gameState.currentQuestion < quizData.length) {
+                document.getElementById('ranking-screen').classList.add('hidden');
+                document.getElementById('game-screen').classList.remove('hidden');
+                showQuestion();
+            } else {
+                showPodium();
+            }
+        };
+
+        function showPodium() {
+            document.getElementById('ranking-screen').classList.add('hidden');
+            document.getElementById('podium-screen').classList.remove('hidden');
+            
+            const sorted = Object.values(gameState.players)
+                .sort((a, b) => b.score - a.score);
+            
+            const content = document.getElementById('podium-content');
+            let podiumHtml = '';
+            if (sorted[0]) podiumHtml += `<div class="mt-4"><h2>🥇 1º Lugar: ${sorted[0].name}</h2><p>${sorted[0].score} pontos</p></div>`;
+            if (sorted[1]) podiumHtml += `<div class="mt-4"><h3>🥈 2º Lugar: ${sorted[1].name}</h3><p>${sorted[1].score} pontos</p></div>`;
+            if (sorted[2]) podiumHtml += `<div class="mt-4"><h4>🥉 3º Lugar: ${sorted[2].name}</h4><p>${sorted[2].score} pontos</p></div>`;
+            
+            content.innerHTML = podiumHtml;
+            broadcast({ type: 'game_over', winner: sorted[0]?.name });
+        }
+
+        // Start
+        initPeer();
+    </script>
+</body>
+</html>

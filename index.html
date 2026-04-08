@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quiz BI - Aluno</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/trystero/dist/trystero.min.js"></script>
 </head>
 <body>
     <div class="mesh-bg"></div>
@@ -58,10 +58,12 @@
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const roomId = urlParams.get('room')?.toUpperCase();
-        let peer = null;
-        let conn = null;
+        
+        let getPeer, joinRoom, sendAction, onAction;
+        
         let myName = '';
         let hasAnswered = false;
+        let currentQuestionNum = 0;
 
         if (!roomId) {
             document.getElementById('status-text').innerText = 'ERRO: Link inválido. Peça o QR Code ao professor.';
@@ -72,37 +74,29 @@
             myName = document.getElementById('player-name').value.trim();
             if (!myName) return alert('Por favor, digite seu nome.');
             
-            connectToHost();
+            connectToRoom();
         };
 
-        function connectToHost() {
+        async function connectToRoom() {
             document.getElementById('status-text').innerText = 'Conectando ao professor...';
             document.getElementById('join-btn').disabled = true;
 
-            peer = new Peer();
+            const roomConfig = { appId: 'quiz-bi-' + roomId };
+            const result = Trystero.joinRoom(roomConfig);
+            getPeer = result[0];
+            joinRoom = result[1];
+            sendAction = result[2];
+            onAction = result[3];
+            
+            const peer = getPeer();
 
-            peer.on('open', (id) => {
-                conn = peer.connect('QUIZ-' + roomId);
-
-                conn.on('open', () => {
-                    conn.send({ type: 'join', name: myName });
-                });
-
-                conn.on('data', (data) => {
-                    handleHostData(data);
-                });
-
-                conn.on('close', () => {
-                    alert('Conexão perdida com o professor.');
-                    location.reload();
-                });
-                
-                peer.on('error', (err) => {
-                    console.error(err);
-                    document.getElementById('status-text').innerText = 'Erro ao conectar. A sala existe?';
-                    document.getElementById('join-btn').disabled = false;
-                });
+            onAction((data) => {
+                handleHostData(data);
             });
+
+            setTimeout(() => {
+                sendAction({ type: 'join', name: myName });
+            }, 2000);
         }
 
         function handleHostData(data) {
@@ -111,12 +105,15 @@
                 document.getElementById('waiting-screen').classList.remove('hidden');
                 document.getElementById('display-name').innerText = myName;
                 document.getElementById('display-room-id').innerText = roomId;
+                document.getElementById('status-text').innerText = '';
             }
 
             if (data.type === 'question') {
                 hasAnswered = false;
+                currentQuestionNum = data.number;
                 document.getElementById('waiting-screen').classList.add('hidden');
                 document.getElementById('leaderboard-screen').classList.add('hidden');
+                document.getElementById('game-over-screen').classList.add('hidden');
                 document.getElementById('question-screen').classList.remove('hidden');
                 
                 document.getElementById('q-num').innerText = data.number;
@@ -161,12 +158,11 @@
             if (hasAnswered) return;
             hasAnswered = true;
             
-            // Highlight selected
             const btns = document.querySelectorAll('.option-btn');
             btns.forEach(b => b.disabled = true);
             btn.classList.add('selected');
             
-            conn.send({ type: 'answer', answer: key });
+            sendAction({ type: 'answer', answer: key });
         }
     </script>
 </body>

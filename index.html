@@ -6,14 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quiz BI - Aluno</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/trystero@0.23.0/dist/trystero.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
     <div class="mesh-bg"></div>
     <div class="container">
         <h1>Participar do Quiz</h1>
 
-        <!-- Step 1: Join -->
         <div id="join-screen" class="glass-card animate-in">
             <p class="text-center text-secondary mb-4">Bem-vindo! Insira seu nome para começar.</p>
             <input type="text" id="player-name" class="btn" style="width:100%; text-align:left; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); color:white; margin-bottom:1.5rem;" placeholder="Seu Nome">
@@ -21,16 +20,15 @@
             <p id="status-text" class="text-center mt-4 text-secondary"></p>
         </div>
 
-        <!-- Step 2: Waiting -->
         <div id="waiting-screen" class="glass-card hidden text-center animate-in">
             <h2 style="font-size:1.75rem;">Olá, <span id="display-name" style="color:var(--primary-light);"></span>!</h2>
             <p class="text-secondary mt-4">Aguardando o professor iniciar o quiz...</p>
             <div class="mt-4">
                 <div class="room-id" id="display-room-id" style="font-size:1.5rem; letter-spacing:2px;">----</div>
             </div>
+            <button id="reconnect-btn" class="btn btn-secondary mt-4 hidden" style="width:100%;">Reconectar</button>
         </div>
 
-        <!-- Step 3: Question -->
         <div id="question-screen" class="glass-card hidden animate-in">
             <div class="room-info">Questão <span id="q-num">1</span></div>
             <h2 id="q-text" style="font-size:1.5rem;">Aguardando pergunta...</h2>
@@ -38,14 +36,12 @@
             <p id="feedback-text" class="text-center mt-4 hidden text-secondary"></p>
         </div>
 
-        <!-- Step 4: Leaderboard (Student View) -->
         <div id="leaderboard-screen" class="glass-card hidden animate-in">
             <h2 class="text-center" style="font-size:1.75rem;">Liderança</h2>
             <div id="ranking-list" class="mt-4"></div>
             <p class="text-center text-secondary mt-4">Prepare-se para a próxima...</p>
         </div>
 
-        <!-- Step 5: Game Over -->
         <div id="game-over-screen" class="glass-card hidden text-center animate-in">
             <h1 style="font-size:2.5rem;">Fim de Jogo!</h1>
             <p id="final-status" style="font-size:1.25rem; font-weight:600;"></p>
@@ -59,11 +55,13 @@
         const urlParams = new URLSearchParams(window.location.search);
         const roomId = urlParams.get('room')?.toUpperCase();
         
-        let getPeer, joinRoom, sendAction, onAction;
-        
+        let peer = null;
+        let conn = null;
         let myName = '';
         let hasAnswered = false;
-        let currentQuestionNum = 0;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT = 5;
+        let isConnected = false;
 
         if (!roomId) {
             document.getElementById('status-text').innerText = 'ERRO: Link inválido. Peça o QR Code ao professor.';
@@ -74,30 +72,69 @@
             myName = document.getElementById('player-name').value.trim();
             if (!myName) return alert('Por favor, digite seu nome.');
             
-            connectToRoom();
+            connectToHost();
         };
 
-        async function connectToRoom() {
+        function connectToHost() {
             document.getElementById('status-text').innerText = 'Conectando ao professor...';
             document.getElementById('join-btn').disabled = true;
 
-            const roomConfig = { appId: 'quiz-bi-' + roomId };
-            const result = Trystero.joinRoom(roomConfig);
-            getPeer = result[0];
-            joinRoom = result[1];
-            sendAction = result[2];
-            onAction = result[3];
+            if (peer) peer.destroy();
             
-            const peer = getPeer();
-
-            onAction((data) => {
-                handleHostData(data);
+            peer = new Peer({
+                debug: 1
             });
 
-            setTimeout(() => {
-                sendAction({ type: 'join', name: myName });
-            }, 2000);
+            peer.on('open', (id) => {
+                conn = peer.connect('QUIZ-' + roomId, {
+                    reliable: true
+                });
+
+                conn.on('open', () => {
+                    isConnected = true;
+                    reconnectAttempts = 0;
+                    conn.send({ type: 'join', name: myName });
+                });
+
+                conn.on('data', (data) => handleHostData(data));
+
+                conn.on('close', () => {
+                    isConnected = false;
+                    handleDisconnect();
+                });
+
+                conn.on('error', (err) => {
+                    console.error('Connection error:', err);
+                    handleDisconnect();
+                });
+            });
+
+            peer.on('error', (err) => {
+                console.error('Peer error:', err);
+                if (reconnectAttempts < MAX_RECONNECT) {
+                    reconnectAttempts++;
+                    document.getElementById('status-text').innerText = `Erro de conexão. Tentando novamente... (${reconnectAttempts}/${MAX_RECONNECT})`;
+                    setTimeout(() => connectToHost(), 2000);
+                } else {
+                    document.getElementById('status-text').innerText = 'Não foi possível conectar. Atualize a página e tente novamente.';
+                }
+            });
         }
+
+        function handleDisconnect() {
+            document.getElementById('status-text').innerText = 'Conexão perdida com o professor.';
+            document.getElementById('join-btn').disabled = false;
+            
+            if (reconnectAttempts < MAX_RECONNECT) {
+                reconnectAttempts++;
+                document.getElementById('reconnect-btn').classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('reconnect-btn').onclick = () => {
+            document.getElementById('reconnect-btn').classList.add('hidden');
+            connectToHost();
+        };
 
         function handleHostData(data) {
             if (data.type === 'welcome') {
@@ -110,7 +147,6 @@
 
             if (data.type === 'question') {
                 hasAnswered = false;
-                currentQuestionNum = data.number;
                 document.getElementById('waiting-screen').classList.add('hidden');
                 document.getElementById('leaderboard-screen').classList.add('hidden');
                 document.getElementById('game-over-screen').classList.add('hidden');
@@ -162,7 +198,9 @@
             btns.forEach(b => b.disabled = true);
             btn.classList.add('selected');
             
-            sendAction({ type: 'answer', answer: key });
+            if (conn && conn.open) {
+                conn.send({ type: 'answer', answer: key });
+            }
         }
     </script>
 </body>

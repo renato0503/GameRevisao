@@ -6,18 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quiz BI - Professor (Host)</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="data.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/trystero@0.23.0/dist/trystero.min.js"></script>
 </head>
 <body>
     <div class="mesh-bg"></div>
     <div class="container">
         <h1>Dashboard do Professor</h1>
 
-        <!-- Step 1: Initialization -->
         <div id="setup-screen" class="glass-card text-center animate-in">
-            <p class="text-secondary" id="status-text">Iniciando conexão P2P...</p>
+            <p class="text-secondary" id="status-msg">Iniciando servidor P2P...</p>
             <div id="room-display" class="hidden">
                 <p class="room-info">Sala Criada • Compartilhe o código</p>
                 <div class="room-id" id="room-id-text">----</div>
@@ -30,7 +29,6 @@
             </div>
         </div>
 
-        <!-- Step 2: Question Display -->
         <div id="game-screen" class="glass-card hidden animate-in">
             <div class="room-info">Questão <span id="current-q-num">1</span> de 50</div>
             <h2 id="question-text">Carregando pergunta...</h2>
@@ -42,14 +40,12 @@
             </div>
         </div>
 
-        <!-- Step 3: Ranking -->
         <div id="ranking-screen" class="glass-card hidden animate-in">
             <h2 class="text-center">Liderança Parcial</h2>
             <div id="ranking-body"></div>
             <button class="btn btn-primary mt-4" id="continue-game-btn" style="width: 100%;">Próxima Pergunta</button>
         </div>
 
-        <!-- Step 4: Final Podium -->
         <div id="podium-screen" class="glass-card hidden animate-in">
             <h1 class="text-center">Pódio Final 🏆</h1>
             <div id="podium-content" class="text-center"></div>
@@ -63,10 +59,10 @@
             event.returnValue = 'Atenção: Se você sair agora, a sala e o ranking serão perdidos permanentemente!';
         });
 
-        const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const roomConfig = { appId: 'quiz-bi-' + roomId };
-        
-        let getPeer, joinRoom, sendAction, onAction;
+        let peer = null;
+        let connections = {};
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT = 3;
         
         let gameState = {
             currentQuestion: 0,
@@ -75,44 +71,67 @@
             responsesCount: 0
         };
 
-        async function initTrystero() {
-            const result = Trystero.joinRoom(roomConfig);
-            getPeer = result[0];
-            joinRoom = result[1];
-            sendAction = result[2];
-            onAction = result[3];
-
-            const peer = getPeer();
-            
-            document.getElementById('status-text').classList.add('hidden');
-            document.getElementById('room-display').classList.remove('hidden');
-            document.getElementById('room-id-text').innerText = roomId;
-            
-            const url = window.location.href.replace('host.html', 'index.html') + '?room=' + roomId;
-            new QRCode(document.getElementById("qrcode"), {
-                text: url,
-                width: 200,
-                height: 200
+        const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+        
+        function initPeer() {
+            peer = new Peer('QUIZ-' + roomId, {
+                debug: 1
             });
 
-            onAction((data, peerId) => {
-                handleClientData(peerId, data);
+            peer.on('open', (id) => {
+                document.getElementById('status-msg').classList.add('hidden');
+                document.getElementById('room-display').classList.remove('hidden');
+                document.getElementById('room-id-text').innerText = roomId;
+                
+                const url = window.location.href.replace('host.html', 'index.html') + '?room=' + roomId;
+                new QRCode(document.getElementById("qrcode"), {
+                    text: url,
+                    width: 200,
+                    height: 200
+                });
+            });
+
+            peer.on('connection', (conn) => {
+                conn.on('data', (data) => handleClientData(conn, data));
+                conn.on('close', () => {
+                    const peerId = conn.peer;
+                    setTimeout(() => {
+                        if (connections[peerId]) {
+                            delete connections[peerId];
+                            updatePlayerList();
+                        }
+                    }, 2000);
+                });
+                conn.on('open', () => {
+                    connections[conn.peer] = conn;
+                });
+            });
+
+            peer.on('error', (err) => {
+                console.error('PeerJS Error:', err);
+                if (err.type === 'network' || err.type === 'server-error') {
+                    if (reconnectAttempts < MAX_RECONNECT) {
+                        reconnectAttempts++;
+                        setTimeout(() => initPeer(), 2000);
+                    }
+                }
             });
         }
 
-        function handleClientData(peerId, data) {
+        function handleClientData(conn, data) {
             if (data.type === 'join') {
-                gameState.players[peerId] = {
+                connections[conn.peer] = conn;
+                gameState.players[conn.peer] = {
                     name: data.name,
                     score: 0,
                     answered: false
                 };
                 updatePlayerList();
-                sendAction({ type: 'welcome', roomId: roomId }, peerId);
+                conn.send({ type: 'welcome', roomId: roomId });
             }
 
             if (data.type === 'answer') {
-                const player = gameState.players[peerId];
+                const player = gameState.players[conn.peer];
                 if (player && !player.answered) {
                     player.answered = true;
                     gameState.responsesCount++;
@@ -123,7 +142,7 @@
                     }
                     
                     updateResponseCount();
-                    sendAction({ type: 'answer_received' }, peerId);
+                    conn.send({ type: 'answer_received' });
                 }
             }
         }
@@ -147,7 +166,9 @@
         }
 
         function broadcast(data) {
-            sendAction(data);
+            Object.values(connections).forEach(conn => {
+                if (conn.open) conn.send(data);
+            });
         }
 
         document.getElementById('start-game-btn').onclick = () => {
@@ -177,12 +198,7 @@
             document.getElementById('next-q-btn').innerText = 'Mostrar Resposta';
             updateResponseCount();
 
-            broadcast({
-                type: 'question',
-                question: q.question,
-                options: q.options,
-                number: gameState.currentQuestion + 1
-            });
+            broadcast({ type: 'question', question: q.question, options: q.options, number: gameState.currentQuestion + 1 });
         }
 
         document.getElementById('next-q-btn').onclick = () => {
@@ -200,8 +216,7 @@
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('ranking-screen').classList.remove('hidden');
             
-            const sortedPlayers = Object.values(gameState.players)
-                .sort((a, b) => b.score - a.score);
+            const sortedPlayers = Object.values(gameState.players).sort((a, b) => b.score - a.score);
             
             const body = document.getElementById('ranking-body');
             body.innerHTML = sortedPlayers.slice(0, 5).map((p, i) => `
@@ -214,10 +229,7 @@
                 </div>
             `).join('');
 
-            broadcast({
-                type: 'ranking',
-                ranking: sortedPlayers.map(p => ({name: p.name, score: p.score}))
-            });
+            broadcast({ type: 'ranking', ranking: sortedPlayers.map(p => ({name: p.name, score: p.score})) });
         }
 
         document.getElementById('continue-game-btn').onclick = () => {
@@ -235,8 +247,7 @@
             document.getElementById('ranking-screen').classList.add('hidden');
             document.getElementById('podium-screen').classList.remove('hidden');
             
-            const sorted = Object.values(gameState.players)
-                .sort((a, b) => b.score - a.score);
+            const sorted = Object.values(gameState.players).sort((a, b) => b.score - a.score);
             
             const content = document.getElementById('podium-content');
             let podiumHtml = '';
@@ -248,7 +259,7 @@
             broadcast({ type: 'game_over', winner: sorted[0]?.name });
         }
 
-        initTrystero();
+        initPeer();
     </script>
 </body>
 </html>
